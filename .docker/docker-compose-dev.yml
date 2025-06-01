@@ -1,0 +1,10 @@
+services:
+  mcp_and_agents_example:
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile.dev
+    network_mode: host
+    volumes:
+      - ..:/workspace:Z
+    command: "sleep infinity"
+    platform: linux/amd64
