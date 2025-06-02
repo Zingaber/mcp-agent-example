@@ -1,0 +1,277 @@
+:REVEAL_PROPERTIES:
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_REVEAL_JS_VERSION: 4
+#+REVEAL_TRANS: slide
+#+REVEAL_THEME: moon
+#+REVEAL_PLUGINS: (highlight markdown)
+#+REVEAL_INIT_OPTIONS: slideNumber:false
+#+OPTIONS: toc:nil timestamp:nil num:nil
+:END:
+
+#+MACRO: color @@html:<font color="$1">$2</font>@@
+#+MACRO: imglink @@html:<img src="$1">@@
+
+#+Title: Integrate MCP Servers Into Your Agents
+#+Author: Alex Comerford
+
+#+BEGIN_SRC emacs-lisp :exports none
+(require 'ox-reveal)
+(setq org-src-preserve-indentation nil)
+(setq org-toggle-with-inline-images t)
+(setq org-edit-src-content-indentation 0)
+(setq org-startup-with-inline-images t)
+(setq org-export-with-email t)
+(setq org-reveal-root "http://cdn.jsdelivr.net/npm/reveal.js")
+
+(defun* export-on-save (&key (enable nil))
+  (interactive)
+  (if (and (not enable) (memq 'org-reveal-export-to-html after-save-hook))
+      (progn
+        (remove-hook 'after-save-hook 'org-reveal-export-to-html t)
+        (message "Disabled export on save"))
+    (add-hook 'after-save-hook 'org-reveal-export-to-html nil t)
+    (message "Enabled export on save")))
+(export-on-save)
+#+END_SRC
+
+#+RESULTS:
+: Enabled export on save
+
+* About me
+
+  - ML Engineer by trade
+  - Based in Miami 🌴
+  - 💙 Infrastructure, ML, and Cryptography
+  - 💙💙 Math Puzzles
+  - 💙💙💙 Juggling & Fidget Toys
+
+* Goals of this presentation
+
+  1. What is MCP and why it matters
+  2. Capabilities and caveats of using MCP servers
+  3. Using MCP servers with agents (and demo!)
+
+* Software is eating the world
+
+  -- Marc Andreessen
+
+* Software _2.0_ is eating Software _1.0_
+
+  -- /not/ (Marc Andreessen or Andrej Karpathy)
+
+* MCP is accelerating this process
+* What is MCP? (official)
+
+  MCP (Model Context Procotol) is an open protocol that standardizes how applications provide context to
+  LLMs (like USB-C)
+
+  Developed by Anthropic circa October 2024
+
+* What is MCP? (unofficial)
+
+  A framework for LLM/agent add-ons
+
+* Why would you want to use MCP
+
+  - You want an LLM to have access to information it wouldn't know
+  - You want an LLM to interact with another system
+  - You want to execute a structured process, from a ambiguous intent
+
+* What does MCP come with?
+
+  - Tools (executable functions)
+  - Resources (data access)
+  - Prompts
+  - Sampling (LLM completions)
+  - Roots (information narrowing)
+
+* Isn't this just tool calling?
+
+  [[file:assets/openai_api_tools.png]]
+
+* Yes!
+* How is it different?
+
+  - Instead of everyone re-implementing custom adapters for LLMs, we can now
+    share a common adapter for LLMs as an MCP server
+  - Also knows as the "NxM" problem
+
+* MCP architecture
+
+	file:./assets/mcp_architecture.png
+
+* MCP Protocol (simplified)
+
+  - Messages are based on the [[https://www.jsonrpc.org/specification][JSON-RPC]] with predefined methods
+  - Transport is over stdio or SSE
+
+  #+begin_src json
+  { // request
+      jsonrpc: "2.0",
+      id: number | string,
+      method: string,
+      params?: object
+  }
+  #+end_src
+
+  #+begin_src json
+  { // response
+      jsonrpc: "2.0";
+      id: string | number;
+      result?: {
+          [key: string]: unknown;
+      }
+      error?: {
+          code: number;
+          message: string;
+          data?: unknown;
+      }
+  }
+  #+end_src
+
+* MCP Protocol Example (init message)
+
+  #+begin_src json
+  {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+          "protocolVersion": "2024-11-05",
+          "capabilities": {
+              "roots": {
+                  "listChanged": true
+              },
+              "sampling": {}
+          },
+          "clientInfo": {
+              "name": "ExampleClient",
+              "version": "1.0.0"
+          }
+      }
+  }
+  #+end_src
+
+* The 'hello world' of MCP
+
+  #+begin_src python
+  from random import randint
+  from mcp.server.fastmcp import FastMCP
+  mcp = FastMCP("my-awesome-mcp-server")
+
+  @mcp.tool()
+  def flip_coin() -> str:
+      """Flips a coin"""
+      return ["Heads", "Tails"][randint(0,1)]
+  #+end_src
+
+* How MCP sees this tool
+
+  MCP Client Request
+
+  #+begin_src json
+  {
+      "method": "tools/list",
+      "params": {}
+  }
+  #+end_src
+
+  MCP Server Response
+  #+begin_src json
+  {
+      "tools": [
+          0: {
+              "name": "flip_coin",
+              "description": "Flips a coin",
+              "inputSchema": {
+                  "type": "object",
+                  "properties": {},
+                  "title": "flip_coinArguments"
+              }
+          }
+      ]
+  }
+  #+end_src
+
+* How the "LLM" sees this tool
+
+  #+begin_src json
+  {
+      "name": "flip_coin",
+      "description": "Flips a coin",
+      "inputSchema": {
+          "properties": {},
+          "title": "flip_coinArguments",
+          "type": "object"
+      },
+      "annotations": null
+  }
+  #+end_src
+
+* MCP tool calling sequence
+
+  [[file:assets/mcp_tool_list_sequence.png]]
+
+* Running + Configuring an MCP server
+
+  - The semi-standard way MCP servers are configured/run is:
+
+  #+begin_src json
+  {
+      "mcpServers": {
+          "my-awesome-mcp-server": {
+              "command": "uvx",
+              "args": ["my-awesome-mcp-server"]
+          },
+          "another-awesome-mcp-server": {
+              "command": "npx",
+              "args": ["another-awesome-mcp-server"],
+              "env": {
+                  "API_KEY": "abcd..."
+              }
+          }
+      }
+  }
+  #+end_src
+
+* MCP Clients and Servers in the wild
+
+  1. There are *many* clients and servers (choose wisely)
+     - 10s of mature clients
+     - 1000s of servers
+  2. Most MCP clients don't implement the full MCP specification
+  3. Most MCP servers wrap existing APIs
+  4. Not all MCP servers are safe!
+
+* Security
+
+  source: https://github.com/ukend0464/pacman/issues/1
+
+  [[file:assets/github_mcp_exploit.png]]
+
+* Further reading on MCP security
+
+  - [[https://elenacross7.medium.com/%EF%B8%8F-the-s-in-mcp-stands-for-security-91407b33ed6b][The "S" in MCP stands for security]]
+  - [[https://invariantlabs.ai/blog/whatsapp-mcp-exploited][Exfiltrating your message history via MCP]]
+  - [[https://equixly.com/blog/2025/03/29/mcp-server-new-security-nightmare/][MCP Servers: The New Security Nightmare]]
+
+* How to use MCP servers in your agent
+
+* Demo!
+
+* Thank you!
+* I'm on the internet! 🌐
+
+  #+NAME: surround
+  #+begin_export html
+  <div style="text-align: left;width: 60%;margin: auto auto">
+  <p><span style="float:left">🐙 Github:</span> <span style="float:right"><code>@cmrfrd</code></span></p>
+  <br />
+  <p><span style="float:left">𝕏:</span> <span style="float:right"><code>@thecmrfrd</code></span></p>
+  <br />
+  <p><span style="float:left">📬 Email:</span> <span style="float:right"><code>alex@taoa.io</code></span></p>
+  <br />
+  <p><span style="float:left">📑 Blog:</span> <span style="float:right"><code>taoa.io</code></span></p>
+  <br />
+  </div>
+  #+end_export
