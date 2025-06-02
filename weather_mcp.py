@@ -53,7 +53,7 @@ async def get_forecast(latitude: float, longitude: float) -> str:
         except httpx.HTTPError:
             return "Unable to fetch forecast data for this location."
 
-    forecasts = forecast_data["properties"]["periods"][:3]
+    forecasts = forecast_data["properties"]["periods"][:10]
     return "\n---\n".join(str(forecast) for forecast in forecasts)
 
 

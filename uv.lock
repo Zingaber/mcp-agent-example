@@ -304,6 +304,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "httpx" },
     { name = "mcp" },
+    { name = "openai" },
     { name = "openai-agents" },
 ]
 
@@ -317,6 +318,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", specifier = ">=1.9.2" },
+    { name = "openai", specifier = ">=1.82.1" },
     { name = "openai-agents", specifier = ">=0.0.16" },
 ]
 
