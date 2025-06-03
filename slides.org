@@ -37,6 +37,12 @@
 #+RESULTS:
 : Enabled export on save
 
+* Follow along!
+
+  [[file:assets/deepstation_repo.png]]
+
+  https://github.com/deepstation/mcp-agent-example
+
 * About me
 
   - ML Engineer by trade
@@ -65,7 +71,7 @@
   MCP (Model Context Procotol) is an open protocol that standardizes how applications provide context to
   LLMs (like USB-C)
 
-  Developed by Anthropic circa October 2024
+  Released by Anthropic ~ October 2024
 
 * What is MCP? (unofficial)
 
@@ -129,6 +135,18 @@
   }
   #+end_src
 
+* MCP methods (subset)
+
+  #+begin_src
+  ping
+  initialize
+  tools/list
+  tools/call
+  notifications/progress
+  resources/list
+  sampling/createMessage
+  #+end_src
+
 * MCP Protocol Example (init message)
 
   #+begin_src json
@@ -177,10 +195,11 @@
   #+end_src
 
   MCP Server Response
+
   #+begin_src json
   {
       "tools": [
-          0: {
+          {
               "name": "flip_coin",
               "description": "Flips a coin",
               "inputSchema": {
@@ -196,6 +215,7 @@
 * How the "LLM" sees this tool
 
   #+begin_src json
+  ...prompt...
   {
       "name": "flip_coin",
       "description": "Flips a coin",
@@ -203,8 +223,7 @@
           "properties": {},
           "title": "flip_coinArguments",
           "type": "object"
-      },
-      "annotations": null
+      }
   }
   #+end_src
 
@@ -275,3 +294,5 @@
   <br />
   </div>
   #+end_export
+
+  ~github.com/deepstation/mcp-agent-example~
